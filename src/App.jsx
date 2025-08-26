@@ -15,6 +15,9 @@ import PromptsNew from './Pages/Prompts/PromptsNew';
 
 import Playground from './Pages/Playground/Playground';
 
+// ⭐ 추가: 게이트 컴포넌트 임포트
+import ProjectGate from './components/ProjectGate';
+
 // import JudgePage from './pages/Evaluation/Judge/JudgePage';
 
 // import Dashboards from './pages/Dashboards/Dashboards';
@@ -42,10 +45,23 @@ export default function App() {
         <Route path="trace" element={<Tracing />} />
         <Route path="sessions" element={<Sessions />} />
         <Route path="sessions/:sessionId" element={<SessionDetail />} />
+
+
         <Route path="prompts" element={<Prompts />} />
         <Route path="prompts/:id" element={<PromptsDetail />} />
         <Route path="prompts/new" element={<PromptsNew />} />
-        <Route path="playground" element={<Playground />} />
+
+
+        {/* 20250826 - 추가/수정 부분 시작 */}
+        {/* ✅ 표준 경로: URL에서 projectId를 직접 읽어 사용 */}
+        <Route path="project/:projectId/playground" element={<Playground />} />
+
+        {/* ✅ 짧은 경로: 게이트가 projectId를 찾아 표준 경로로 리다이렉트 또는 배너 표시 */}
+        {/* 👇 기존: <Route path="playground" element={<Playground />} /> 를 교체 */}
+
+        <Route path="playground" element={<ProjectGate />} />
+
+        {/* 20250826 - 추가/수정 부분 끝 */}
 
         {/* <Route path="prompts" element={<Prompts />} />
         <Route path="prompts/:id" element={<PromptsDetail />} />

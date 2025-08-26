@@ -6,11 +6,11 @@ import { GripVertical, X, MessageSquarePlus, PlusSquare } from "lucide-react";
 
 /**
  * 메시지 객체 형태(권장)
- * kind === "message"  => { id, kind:"message", role:"System"|"User"|"Assistant", content:string }
+ * kind === "message"  => { id, kind:"message", role:"System"|"User"|"Assistant"|"Developer", content:string }
  * kind === "placeholder" => { id, kind:"placeholder", name:string }
  *
  * ▣ 화면 매핑
- * - 왼쪽 라벨/셀렉트: System/User/Assistant 또는 placeholder 뱃지
+ * - 왼쪽 라벨/셀렉트: System/User/Assistant/Developer 또는 placeholder 뱃지
  * - 오른쪽 입력:
  *   - message: textarea (role 별 안내 placeholder)
  *   - placeholder: input (이름만 입력, 예: msg_history)
@@ -41,8 +41,10 @@ const ChatMessageRow = ({
             const clientOffset = monitor.getClientOffset();
             const hoverClientY = clientOffset.y - hoverRect.top;
 
-            if ((dragIndex < hoverIndex && hoverClientY < hoverMiddleY) ||
-                (dragIndex > hoverIndex && hoverClientY > hoverMiddleY)) {
+            if (
+                (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) ||
+                (dragIndex > hoverIndex && hoverClientY > hoverMiddleY)
+            ) {
                 return;
             }
             moveRow(dragIndex, hoverIndex);
@@ -79,7 +81,9 @@ const ChatMessageRow = ({
                         value={row.role}
                         onChange={(e) => onChange(row.id, { role: e.target.value })}
                     >
+                        {/* ✅ Developer 역할 추가 */}
                         <option>System</option>
+                        <option>Developer</option>
                         <option>User</option>
                         <option>Assistant</option>
                     </select>
@@ -95,11 +99,14 @@ const ChatMessageRow = ({
                         className={styles.messageTextarea}
                         rows={1}
                         placeholder={
+                            // ✅ 역할별 안내 문구에 Developer 추가
                             row.role === "System"
                                 ? "Enter a system message here."
-                                : row.role === "Assistant"
-                                    ? "Enter an assistant message here."
-                                    : "Enter a user message here."
+                                : row.role === "Developer"
+                                    ? "Enter a developer message here."
+                                    : row.role === "Assistant"
+                                        ? "Enter an assistant message here."
+                                        : "Enter a user message here."
                         }
                         value={row.content}
                         onChange={(e) => onChange(row.id, { content: e.target.value })}
@@ -152,8 +159,13 @@ const ChatBox = ({ messages, setMessages }) => {
     const computeNextRole = () => {
         // 뒤에서부터 message(placeholder 제외) 찾기
         const lastMsg = [...messages].reverse().find((m) => m.kind === "message");
+        // ✅ 기본 시작점: Assistant
         if (!lastMsg) return "Assistant";
-        if (lastMsg.role === "System") return "User";
+
+        // ✅ 역할 순환에 Developer 포함
+        // System → Developer → User → Assistant → User …
+        if (lastMsg.role === "System") return "Developer";
+        if (lastMsg.role === "Developer") return "User";
         if (lastMsg.role === "User") return "Assistant";
         if (lastMsg.role === "Assistant") return "User";
         return "User";

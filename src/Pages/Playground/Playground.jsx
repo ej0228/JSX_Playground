@@ -14,6 +14,7 @@ import {
   Edit,
   X,
   Settings,
+  ChevronDown,
 } from "lucide-react";
 import styles from "./Playground.module.css";
 import ChatBox from "../../components/ChatBox/ChatBox";
@@ -21,7 +22,8 @@ import NewLlmConnectionModal from "./NewLlmConnectionModal";
 import PlaygroundPanel from "./PlaygroundPanel";
 import NewItemModal from "./NewItemModal";
 import SavePromptPopover from "./SavePromptPopover";
-
+// import PageHeader from "../../components/PageHeader/PageHeader";
+import useProjectId from "../../hooks/useProjectId";
 
 // ---------- Tools Panel ----------
 const ToolsPanelContent = ({
@@ -184,6 +186,18 @@ function StreamSettingsPopover({ open, streaming, onChangeStreaming, onClose }) 
   );
 }
 
+
+// ---------- Variables Panel ----------
+const VariablesPanelContent = () => (
+  <>
+
+    <div className={styles.emptyNote} style={{ marginTop: 8 }}>
+    </div>
+  </>
+);
+
+
+
 // ---------- 단일 패널 ----------
 
 
@@ -194,7 +208,7 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
   const [activePanel, setActivePanel] = useState(null); // 'tools' | 'schema' | null
   const [isSavePopoverOpen, setIsSavePopoverOpen] = useState(false);
   const [isStreamSettingsOpen, setIsStreamSettingsOpen] = useState(false);
-
+  const { projectId: PROJECT_ID, source, setProjectId } = useProjectId();
   const [attachedTools, setAttachedTools] = useState([]);
   const [availableTools] = useState([
     { id: "tool-1", name: "tool", description: "ddd" },
@@ -222,7 +236,6 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
 
   // ===== 서버 호출/모델 선택/스트리밍 =====
   const API_URL = "/api/chatCompletion";
-  const PROJECT_ID = "cmekxpet50001qe07qeelt05h"; //----> 이후 프로젝트 모델 연동되도록 수정 필요
 
   // LLM Connections 로딩 (tRPC 읽기)
   const [connections, setConnections] = useState([]); // [{provider, adapter, baseURL, customModels, withDefaultModels}, ...]
@@ -230,7 +243,7 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
   const [connError, setConnError] = useState(null);
 
   const [selectedProvider, setSelectedProvider] = useState("");   // provider 문자열
-  const [selectedAdapter, setSelectedAdapter] = useState("openai");
+  const [selectedAdapter, setSelectedAdapter] = useState("");
   const [selectedModel, setSelectedModel] = useState("");         // 정확한 모델명(예: "Qwen-xxx")
 
   const [streaming, setStreaming] = useState(false);
@@ -239,42 +252,135 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
   const [output, setOutput] = useState(null);
   const outputTextRef = useRef(""); // 스트리밍 누적 출력
 
+
+  // --- 드롭다운 상태/참조 (model pill)
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const modelBtnRef = useRef(null);
+  const modelMenuRef = useRef(null);
+
+
+  // tRPC payload 언랩 유틸 (안전하게 파싱)
+  function unwrapTrpcJson(j) {
+    // 보통 j.result.data.json 에 최종 페이로드가 들어오지만,
+    // 버전/어댑터에 따라 j.result.data 인 경우도 있으니 폭넓게 처리
+    return j?.result?.data?.json ?? j?.result?.data ?? j;
+  }
+
   useEffect(() => {
+    // 1) null: useProjectId가 아직 결정 중 (초기 로딩 단계)
+    if (PROJECT_ID === null) return;
+    // 2) 빈 문자열: 진짜 projectId를 못 찾은 상태 → UI 초기화 후 종료
+    if (PROJECT_ID === "") {
+      setConnections([]);
+      setSelectedProvider("");
+      setSelectedAdapter("");
+      setSelectedModel("");
+      return;
+    }
+
+    const ac = new AbortController();
+
     (async () => {
       try {
         setLoadingConn(true);
         setConnError(null);
-        // tRPC query: llmApiKey.all GET + input=...
+
         const qs = encodeURIComponent(JSON.stringify({ json: { projectId: PROJECT_ID } }));
         const url = `/api/trpc/llmApiKey.all?input=${qs}`;
-        const r = await fetch(url, { credentials: "include" });
+        const r = await fetch(url, { credentials: "include", signal: ac.signal });
+
+        if (ac.signal.aborted) return;
+
+        if (r.status === 401) {
+          // 401은 세션/쿠키(프록시) 또는 멤버십 문제
+          throw new Error("401 Unauthorized — 로그인/쿠키 또는 프로젝트 멤버십/프록시 설정 확인");
+        }
+        if (!r.ok) throw new Error(`Failed to load LLM connections (${r.status})`);
+
         const j = await r.json().catch(() => ({}));
-        const rows = j?.result?.data?.json?.data || [];
+        const payload = unwrapTrpcJson(j); // => { data, totalCount } 형태 기대
+        const rows = payload?.data || [];
+
         setConnections(rows);
 
-        // 기본 선택값: 첫 번째 커넥션
         if (rows.length > 0) {
-          setSelectedProvider(rows[0].provider);
-          setSelectedAdapter(rows[0].adapter || "openai");
-          // 모델 후보: customModels, withDefaultModels면 UI에서 직접 입력 가능(간단화: 첫 항목)
-          const firstModel =
-            (rows[0].customModels && rows[0].customModels[0]) || (rows[0].withDefaultModels ? "gpt-4o-mini" : "");
-          setSelectedModel(firstModel || "");
+          const first = rows[0];
+          setSelectedProvider(first.provider || "");
+          setSelectedAdapter(first.adapter ?? "");
+          setSelectedModel(first.customModels?.[0] ?? "");
+        } else {
+          setSelectedProvider("");
+          setSelectedAdapter("");
+          setSelectedModel("");
         }
       } catch (e) {
-        setConnError("Failed to load LLM connections");
+        if (ac.signal.aborted) return;
         console.error("[llm connections] load failed", e);
+        setConnError(e?.message || "Failed to load LLM connections");
+        setConnections([]);
+        setSelectedProvider("");
+        setSelectedAdapter("");
+        setSelectedModel("");
       } finally {
-        setLoadingConn(false);
+        if (!ac.signal.aborted) setLoadingConn(false);
       }
     })();
-  }, []);
+
+    // PROJECT_ID가 바뀌거나 언마운트되면 요청 취소
+    return () => ac.abort();
+  }, [PROJECT_ID]);
 
 
+  // ✅ 현재 선택된 연결 탐색 (provider+adapter로 정확히 매칭)
   const currentConn = useMemo(
-    () => connections.find((c) => c.provider === selectedProvider),
-    [connections, selectedProvider]
+    () =>
+      connections.find(
+        (c) =>
+          c.provider === selectedProvider &&
+          (c.adapter ?? "") === (selectedAdapter ?? "")
+      ),
+    [connections, selectedProvider, selectedAdapter]
   );
+
+  // ✅ 드롭다운에 뿌릴 "저장된 모델" 리스트
+  const modelMenuItems = useMemo(
+    () =>
+      connections.flatMap((c) =>
+        (c.customModels ?? []).map((m) => ({
+          id: `${c.id}::${m}`,
+          conn: c,
+          model: m,
+        }))
+      ),
+    [connections]
+  );
+  // ✅ 외부 클릭 시 드롭다운 닫기 (JS 버전)
+  useEffect(() => {
+    if (!isModelMenuOpen) return;
+    const onDown = (e) => {
+      if (!modelMenuRef.current || !modelBtnRef.current) return;
+      const target = e.target;
+      if (
+        !modelMenuRef.current.contains(target) &&
+        !modelBtnRef.current.contains(target)
+      ) {
+        setIsModelMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [isModelMenuOpen]);
+
+  // ✅ 목록에서 (연결,모델) 클릭 시 정확히 그 값으로만 세팅
+  function pickConnection(item) {
+    setSelectedProvider(item.conn.provider);
+    setSelectedAdapter(item.conn.adapter ?? "");
+    setSelectedModel(item.model);
+    setIsModelMenuOpen(false);
+  }
+
+
+
   const modelOptions = currentConn?.customModels || [];
 
   const hasContent = useMemo(
@@ -392,12 +498,96 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
     }
   }
 
+  //렌더 가드
+  if (PROJECT_ID === null) return <div className={styles.muted}>Loading project…</div>;
+  if (PROJECT_ID === "") return <div className={styles.errorText}>Project ID not found</div>;
+
+
   return (
     <div className={styles.panelContainer}>
       {/* Model Card */}
       <div className={styles.card}>
-        <div className={styles.cardHeader}>
-          <span>Model</span>
+        {/* ✅ 헤더에 model pill + 우측 액션 버튼 */}
+        <div className={styles.cardHeader /* position:relative 추천 */}>
+          <div className={styles.cardHeaderLeft}>
+            <button
+              ref={modelBtnRef}
+              type="button"
+              className={styles.modelPill}
+              onClick={() => connections.length > 0 && setIsModelMenuOpen((v) => !v)}
+              title={connections.length > 0 ? "Change model" : "No LLM connection"}
+              disabled={connections.length === 0}
+            >
+              <span className={styles.modelProvider}>
+                {selectedProvider || (loadingConn ? "Loading…" : "No connection")}
+                {selectedProvider && (selectedAdapter ? ` (${selectedAdapter})` : "")}
+              </span>
+              <span className={styles.modelSep}>:</span>
+              <strong className={styles.modelName}>
+                {selectedModel ||
+                  (connections.length === 0
+                    ? "—"
+                    : loadingConn
+                      ? "Loading…"
+                      : "select model")}
+              </strong>
+              {connections.length > 0 && <ChevronDown size={14} />}
+            </button>
+
+            {/* 연결이 없으면 옆에 추가 버튼 표시 */}
+            {connections.length === 0 && (
+              <button className={styles.addLlmBtn} onClick={() => setIsLlmModalOpen(true)}>
+                <Plus size={16} /> Add LLM Connection
+              </button>
+            )}
+
+            {/* ▼ 드롭다운 메뉴 (연결이 있을 때만) */}
+            {isModelMenuOpen && connections.length > 0 && (
+              <div ref={modelMenuRef} className={styles.modelMenu}>
+                <div className={styles.menuSectionLabel}>Saved models</div>
+
+                {loadingConn ? (
+                  <div className={styles.menuEmpty}>Loading…</div>
+                ) : modelMenuItems.length > 0 ? (
+                  modelMenuItems.map((item) => {
+                    const isActive =
+                      selectedProvider === item.conn.provider &&
+                      (selectedAdapter ?? "") === (item.conn.adapter ?? "") &&
+                      selectedModel === item.model;
+
+                    return (
+                      <button
+                        key={item.id}
+                        className={`${styles.menuItem} ${isActive ? styles.active : ""}`}
+                        onClick={() => pickConnection(item)}
+                      >
+                        <span className={styles.menuMain}>
+                          {item.conn.provider}
+                          {item.conn.adapter ? ` (${item.conn.adapter})` : ""}
+                        </span>
+                        <span className={styles.menuSep}>:</span>
+                        <span className={styles.menuModel}>{item.model}</span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className={styles.menuEmpty}>No saved models</div>
+                )}
+
+                <div className={styles.menuDivider} />
+                <button
+                  className={styles.menuItem}
+                  onClick={() => {
+                    setIsModelMenuOpen(false);
+                    setIsLlmModalOpen(true);
+                  }}
+                >
+                  <Plus size={14} /> Add new connection…
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className={styles.cardActions}>
             <button className={styles.iconActionBtn} onClick={onCopy} title="Duplicate panel">
               <Copy size={16} />
@@ -424,135 +614,14 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
           </div>
         </div>
 
+
+        {/* ✅ 이제 cardBody에는 모델 관련 내용 없음 */}
         <div className={styles.cardBody}>
           {loadingConn ? (
             <p className={styles.muted}>Loading LLM connections…</p>
           ) : connError ? (
             <p className={styles.errorText}>{connError}</p>
-
-            // LLM 추가 구현 후 사용 가능
-            // ) : connections.length === 0 ? (
-            //   <>
-            //     <p className={styles.noApiKeyText}>No LLM API key set in project.</p>
-            //     <button className={styles.addLlmBtn} onClick={() => setIsLlmModalOpen(true)}>
-            //       <Plus size={16} /> Add LLM Connection
-            //     </button>
-            //   </>
-            // ) : (
-
-            // LLM 모델 구현 전 테스트로 값 넣기
-          ) : connections.length === 0 ? (
-            <>
-              <p className={styles.noApiKeyText}>No LLM API key set in project.</p>
-              <button className={styles.addLlmBtn} onClick={() => setIsLlmModalOpen(true)}>
-                <Plus size={16} /> Add LLM Connection
-              </button>
-
-              {/* === 수동 입력 모드: 연결이 없어도 테스트 가능 === */}
-              <div className={styles.modelRow} style={{ marginTop: 12 }}>
-                <div className={styles.selectGroup}>
-                  <label>Provider (manual)</label>
-                  <input
-                    className={`${styles.textInput} ${!selectedProvider ? styles.inputError : ""}`}
-                    placeholder='e.g., test (Provider name)'
-                    value={selectedProvider}
-                    onChange={(e) => setSelectedProvider(e.target.value)}
-                  />
-                </div>
-
-                <div className={styles.selectGroup}>
-                  <label>Adapter</label>
-                  <select
-                    className={styles.select}
-                    value={selectedAdapter}
-                    onChange={(e) => setSelectedAdapter(e.target.value)}
-                  >
-                    <option value="openai">openai</option>
-                    {/* 필요하면 추가 */}
-                  </select>
-                </div>
-
-                <div className={styles.selectGroup}>
-                  <label>Model</label>
-                  <input
-                    className={`${styles.textInput} ${!selectedModel ? styles.inputError : ""}`}
-                    placeholder='Exact model id (e.g., Qwen3-30B-A3B-Instruct-...)'
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                  />
-                </div>
-              </div>
-            </>
-          ) : (
-
-
-            <div className={styles.modelRow}>
-              <div className={styles.selectGroup}>
-                <label>Provider</label>
-                <select
-                  className={styles.select}
-                  value={selectedProvider}
-                  onChange={(e) => {
-                    const pv = e.target.value;
-                    setSelectedProvider(pv);
-                    const next = connections.find((c) => c.provider === pv);
-                    setSelectedAdapter(next?.adapter || "openai");
-                    const firstModel =
-                      (next?.customModels && next.customModels[0]) ||
-                      (next?.withDefaultModels ? "gpt-4o-mini" : "");
-                    setSelectedModel(firstModel || "");
-                  }}
-                >
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.provider}>
-                      {c.provider} ({c.adapter})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-
-              {/* Model 입력/선택 */}
-              <div className={styles.selectGroup}>
-                <label>Model</label>
-
-                {modelOptions?.length > 0 ? (
-                  // 1) customModels가 있는 경우: 셀렉트 박스
-                  <select
-                    className={`${styles.select} ${!selectedModel ? styles.inputError : ""}`}
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                  >
-                    {modelOptions.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                ) : currentConn?.withDefaultModels ? (
-                  // 2) 기본 모델 사용 가능한 경우: 대표 옵션 제공
-                  <select
-                    className={`${styles.select} ${!selectedModel ? styles.inputError : ""}`}
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                  >
-                    <option value="">-- select a model --</option>
-                    <option value="gpt-4o-mini">gpt-4o-mini</option>
-                    {/* 필요하면 다른 기본 모델을 추가 */}
-                  </select>
-                ) : (
-                  // 3) 어떤 목록도 제공되지 않는 경우: 직접 타이핑 입력
-                  <input
-                    className={`${styles.textInput} ${!selectedModel ? styles.inputError : ""}`}
-                    type="text"
-                    placeholder="Type model id (e.g., Qwen-32B-Instruct)"
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                  />
-                )}
-              </div>
-
-
-            </div>
-          )}
+          ) : null}
         </div>
 
         {isSavePopoverOpen && <SavePromptPopover onSaveAsNew={() => console.log("onSaveAsNew")} />}
@@ -566,7 +635,7 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
         <button className={styles.controlBtn} onClick={() => togglePanel("schema")}>
           <BookText size={14} /> Schema <span className={styles.badge}>{attachedUserSchema ? 1 : 0}</span>
         </button>
-        <button className={styles.controlBtn}>
+        <button className={styles.controlBtn} onClick={() => togglePanel("variables")}>
           <Variable size={14} /> Variables
         </button>
       </div>
@@ -592,6 +661,24 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
             onRemoveSchema={handleRemoveSchema}
             onCreateSchema={() => setModalType("schema")}
           />
+        </PlaygroundPanel>
+      )}
+
+
+      {activePanel === "variables" && (
+        <PlaygroundPanel
+          title="Variables & Message Placeholders"
+          description={
+            <>
+              Configure variables and message placeholders for your prompts.
+              <br />
+              No variables or message placeholders defined.
+            </>
+          }
+          compact
+          floating
+        >
+          <VariablesPanelContent />
         </PlaygroundPanel>
       )}
 
@@ -664,22 +751,18 @@ export default function Playground() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.title}>
-          Playground <Info size={16} />
-        </div>
-        <div className={styles.actions}>
-          <span className={styles.windowInfo}>{panels.length} windows</span>
-          <button className={styles.actionBtn} onClick={addPanel}>
-            <Plus size={16} /> Add Panel
-          </button>
-          <button className={styles.actionBtn}>
-            <Play size={16} /> Run All (Ctrl + Enter)
-          </button>
-          <button className={styles.actionBtn} onClick={resetPlayground}>
-            <RotateCcw size={16} /> Reset playground
-          </button>
-        </div>
+      {/* ✅ 글로벌 헤더(레이아웃)는 그대로. 우리는 그 바로 아래에 툴바만 붙임 */}
+      <div className={styles.pageToolbar}>
+        <span className={styles.windowInfo}>{panels.length} windows</span>
+        <button className={styles.actionBtn} onClick={addPanel}>
+          <Plus size={16} /> Add Panel
+        </button>
+        <button className={styles.actionBtn} onClick={() => { /* TODO: Run All 연결 */ }}>
+          <Play size={16} /> Run All (Ctrl + Enter)
+        </button>
+        <button className={styles.actionBtn} onClick={resetPlayground}>
+          <RotateCcw size={16} /> Reset playground
+        </button>
       </div>
 
       <div className={styles.mainGrid}>

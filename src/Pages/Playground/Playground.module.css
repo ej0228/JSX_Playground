@@ -183,8 +183,27 @@
 /* 상단 툴바(TOOLS/SCHEMA/VARIABLES) */
 .controlsBar {
   display: flex;
+  position: relative;
   gap: 8px;
 }
+
+
+/* 상단 헤더 바로 아래에 붙는 얇은 툴바 */
+.pageToolbar {
+  display: flex;
+  justify-content: flex-end;
+  /* ▶ 우측 정렬 */
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  /* 헤더 하단과 간격 맞춤 */
+  /* 선택: 배경/보더를 헤더와 톤 맞추고 싶으면 */
+  /* background: var(--c-surface-1); */
+  /* border: 1px solid var(--c-border); */
+  /* border-radius: 8px; */
+  /* margin: 8px 0 12px;  */
+}
+
 
 .controlBtn {
   background: #0f172a;
@@ -548,4 +567,103 @@
 /* 필수값 누락 시 붉은 보더로 하이라이트 */
 .inputError {
   border-color: #ef4444 !important;
+}
+
+/* 모델 요약 한 줄 */
+.modelSummaryRow {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+.modelPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--c-border, #2a2f3a);
+  background: var(--c-surface-2, #0f1218);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--c-text, #fff);
+  cursor: pointer;
+}
+
+.modelPill:hover {
+  filter: brightness(1.06);
+}
+
+.modelProvider {
+  opacity: 0.9;
+}
+
+.modelSep {
+  opacity: 0.5;
+  margin: 0 2px;
+}
+
+.modelName {
+  font-weight: 600;
+}
+
+/* 드롭다운 메뉴 */
+.modelMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  /* pill 바로 아래 왼쪽 정렬 */
+  min-width: 280px;
+  padding: 8px;
+  border: 1px solid var(--c-border, #2a2f3a);
+  background: var(--c-surface-2, #0f1218);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.menuSectionLabel {
+  font-size: 12px;
+  opacity: 0.6;
+  padding: 4px 6px 6px;
+}
+
+.menuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--c-text, #fff);
+  text-align: left;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItem.active {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.menuMain {
+  font-weight: 600;
+}
+
+.menuSep {
+  opacity: 0.5;
+}
+
+.menuModel {
+  opacity: 0.9;
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--c-border, #2a2f3a);
+  margin: 6px 0;
 }

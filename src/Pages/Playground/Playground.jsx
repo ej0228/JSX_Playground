@@ -22,7 +22,7 @@ import NewLlmConnectionModal from "./NewLlmConnectionModal";
 import PlaygroundPanel from "./PlaygroundPanel";
 import NewItemModal from "./NewItemModal";
 import SavePromptPopover from "./SavePromptPopover";
-// import PageHeader from "../../components/PageHeader/PageHeader";
+import PageHeader from "../../components/PageHeader/PageHeader";
 import useProjectId from "../../hooks/useProjectId";
 import { ToolsAPI } from "../../services/tools.service";
 import { SchemasAPI } from "../../services/schemas.service";
@@ -253,11 +253,6 @@ function StreamSettingsPopover({ open, streaming, onChangeStreaming, onClose }) 
 }
 
 
-// const VariablesPanelContent = () => (
-//   <>
-//     <div className={styles.emptyNote} style={{ marginTop: 8 }}></div>
-//   </>
-// );
 
 // ---------- Variables Panel ----------
 const VariablesPanelContent = ({ names, values, onChangeValue, onReset }) => {
@@ -270,18 +265,36 @@ const VariablesPanelContent = ({ names, values, onChangeValue, onReset }) => {
         </div>
       ) : (
         <div className={styles.varsList}>
-          {names.map((n) => (
-            <div key={n} className={styles.varRow}>
-              <div className={styles.varName}>{n}</div>
-              <input
-                className={styles.varInput}
-                type="text"
-                placeholder={n}
-                value={values[n] ?? ""}
-                onChange={(e) => onChangeValue(n, e.target.value)}
-              />
-            </div>
-          ))}
+
+          {names.map((n) => {
+            const filled = !!(values[n] && String(values[n]).trim().length);
+            return (
+              <div
+                key={n}
+                className={`${styles.varRow} ${filled ? styles.varRowFilled : styles.varRowEditing
+                  }`}
+              >
+                <div className={styles.varName}>{n}</div>
+
+                <input
+                  className={`${styles.varInput} ${filled ? styles.varInputFilled : styles.varInputEditing
+                    }`}
+                  type="text"
+                  placeholder={n}
+                  value={values[n] ?? ""}
+                  onChange={(e) => onChangeValue(n, e.target.value)}
+                />
+                <span
+                  className={`${styles.varBadge} ${filled ? styles.badgeOk : styles.badgeEditing
+                    }`}
+                  title={filled ? "applied" : "editing"}
+                >
+                  {filled ? "applied" : "editing"}
+                </span>
+              </div>
+
+            );
+          })}
           <div className={styles.varsActions}>
             <button className={styles.toolButton} onClick={onReset}>
               Reset variables

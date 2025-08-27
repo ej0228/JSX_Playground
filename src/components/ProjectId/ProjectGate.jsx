@@ -1,6 +1,6 @@
 // src/components/ProjectGate.jsx
 import { Navigate } from "react-router-dom";
-import useProjectId from "../hooks/useProjectId";
+import useProjectId from "../../hooks/useProjectId";
 import ProjectIdBanner from "./ProjectIdBanner";
 
 /**

@@ -16,7 +16,7 @@ import PromptsNew from './Pages/Prompts/PromptsNew';
 import Playground from './Pages/Playground/Playground';
 
 // ⭐ 추가: 게이트 컴포넌트 임포트
-import ProjectGate from './components/ProjectGate';
+import ProjectGate from './components/ProjectId/ProjectGate';
 
 // import JudgePage from './pages/Evaluation/Judge/JudgePage';
 

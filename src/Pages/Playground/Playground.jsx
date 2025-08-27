@@ -24,14 +24,56 @@ import NewItemModal from "./NewItemModal";
 import SavePromptPopover from "./SavePromptPopover";
 // import PageHeader from "../../components/PageHeader/PageHeader";
 import useProjectId from "../../hooks/useProjectId";
+import { ToolsAPI } from "../../services/tools.service";
+import { SchemasAPI } from "../../services/schemas.service";
+
+
+
+// 메시지 배열 -> 텍스트 병합
+function mergeMessageText(messages) {
+  return messages
+    .filter((m) => m && typeof m.content === "string")
+    .map((m) => m.content)
+    .join("\n");
+}
+
+// {{ var }} 추출
+function extractVariablesFromMessages(messages) {
+  const text = mergeMessageText(messages);
+  // {{  variable_name  }} 허용(공백 trim), 영문/숫자/_/-
+  const re = /\{\{\s*([a-zA-Z0-9_\-]+)\s*\}\}/g;
+  const set = new Set();
+  let m;
+  while ((m = re.exec(text))) set.add(m[1]);
+  return Array.from(set);
+}
+
+// 제출 직전 치환
+function fillVariables(messages, values = {}) {
+  const re = /\{\{\s*([a-zA-Z0-9_\-]+)\s*\}\}/g;
+  return messages.map((msg) => {
+    if (typeof msg.content !== "string") return msg;
+    const content = msg.content.replace(re, (_, name) => {
+      // 값이 비어있으면 그대로 남김(혹은 에러 처리 전에 남겨놓기)
+      return values[name] ?? `{{${name}}}`;
+    });
+    return { ...msg, content };
+  });
+}
+
+
 
 // ---------- Tools Panel ----------
+
 const ToolsPanelContent = ({
   attachedTools,
   availableTools,
   onAddTool,
   onRemoveTool,
   onCreateTool,
+  onEditTool,
+  onDeleteTool,
+  loading,
 }) => (
   <>
     {attachedTools.map((tool) => (
@@ -53,35 +95,45 @@ const ToolsPanelContent = ({
 
     <div className={styles.toolSearch}>
       <Search size={14} />
-      <input type="text" placeholder="Search tools..." />
+      <input type="text" placeholder="Search tools..." disabled={loading} />
     </div>
 
     <div className={styles.toolList}>
-      {availableTools.map((tool) => (
-        <div
-          className={styles.toolItem}
-          key={tool.id}
-          onDoubleClick={() => onAddTool(tool)}
-        >
-          <div className={styles.toolInfo}>
-            <Wrench size={14} />
-            <div className={styles.toolText}>
-              <span className={styles.toolName}>{tool.name}</span>
-              <span className={styles.toolDesc}>{tool.description}</span>
+      {loading ? (
+        <div className={styles.muted}>Loading tools…</div>
+      ) : (
+        availableTools.map((tool) => (
+          <div
+            className={styles.toolItem}
+            key={tool.id}
+            onDoubleClick={() => onAddTool(tool)}
+          >
+            <div className={styles.toolInfo}>
+              <Wrench size={14} />
+              <div className={styles.toolText}>
+                <span className={styles.toolName}>{tool.name}</span>
+                <span className={styles.toolDesc}>{tool.description}</span>
+              </div>
+            </div>
+            <div className={styles.rowActions}>
+              <button className={styles.editButton} title="Edit" onClick={(e) => { e.stopPropagation(); onEditTool(tool); }}>
+                <Edit size={14} />
+              </button>
+              <button className={styles.editButton} title="Delete" onClick={(e) => { e.stopPropagation(); onDeleteTool(tool); }}>
+                <X size={14} />
+              </button>
             </div>
           </div>
-          <button className={styles.editButton}>
-            <Edit size={14} />
-          </button>
-        </div>
-      ))}
+        ))
+      )}
     </div>
 
-    <button className={styles.toolButton} onClick={onCreateTool}>
+    <button className={styles.toolButton} onClick={onCreateTool} disabled={loading}>
       <Plus size={14} /> Create new tool
     </button>
   </>
 );
+
 
 // ---------- Schema Panel ----------
 const SchemaPanelContent = ({
@@ -90,6 +142,9 @@ const SchemaPanelContent = ({
   onRemoveSchema,
   availableSchemas,
   onCreateSchema,
+  onEditSchema,
+  onDeleteSchema,
+  loading,
 }) => (
   <>
     {userSchema && (
@@ -102,7 +157,7 @@ const SchemaPanelContent = ({
               <span className={styles.toolDesc}>{userSchema.description}</span>
             </div>
           </div>
-          <div className={styles.iconCircle} onClick={() => onRemoveSchema(userSchema.id)}>
+          <div className={styles.iconCircle} onClick={() => onRemoveSchema(userSchema.id)} title="Detach schema">
             <Minus size={14} />
           </div>
         </div>
@@ -111,15 +166,19 @@ const SchemaPanelContent = ({
 
     <div className={styles.toolSearch}>
       <Search size={14} />
-      <input type="text" placeholder="Search schemas..." />
+      <input type="text" placeholder="Search schemas..." disabled={loading} />
     </div>
 
     <div className={styles.toolList}>
-      {availableSchemas.map((schema) => (
+
+      {loading ? (
+        <div className={styles.muted}>Loading schemas…</div>
+      ) : availableSchemas.map((schema) => (
         <div
           className={styles.toolItem}
           key={schema.id}
           onDoubleClick={() => onAddSchema(schema)}
+          title="Double click to attach"
         >
           <div className={styles.toolInfo}>
             <div className={styles.toolText}>
@@ -127,18 +186,25 @@ const SchemaPanelContent = ({
               <span className={styles.toolDesc}>{schema.description}</span>
             </div>
           </div>
-          <button className={styles.editButton}>
-            <Edit size={14} />
-          </button>
+
+          <div className={styles.rowActions}>
+            <button className={styles.editButton} title="Edit" onClick={(e) => { e.stopPropagation(); onEditSchema(schema); }}>
+              <Edit size={14} />
+            </button>
+            <button className={styles.editButton} title="Delete" onClick={(e) => { e.stopPropagation(); onDeleteSchema(schema); }}>
+              <X size={14} />
+            </button>
+          </div>
         </div>
       ))}
     </div>
 
-    <button className={styles.toolButton} onClick={onCreateSchema}>
+    <button className={styles.toolButton} onClick={onCreateSchema} disabled={loading}>
       <Plus size={14} /> Create new schema
     </button>
   </>
 );
+
 
 /** 스트리밍 설정 팝오버: 외부 클릭/ESC 닫기 지원 */
 function StreamSettingsPopover({ open, streaming, onChangeStreaming, onClose }) {
@@ -187,14 +253,45 @@ function StreamSettingsPopover({ open, streaming, onChangeStreaming, onClose }) 
 }
 
 
-// ---------- Variables Panel ----------
-const VariablesPanelContent = () => (
-  <>
+// const VariablesPanelContent = () => (
+//   <>
+//     <div className={styles.emptyNote} style={{ marginTop: 8 }}></div>
+//   </>
+// );
 
-    <div className={styles.emptyNote} style={{ marginTop: 8 }}>
-    </div>
-  </>
-);
+// ---------- Variables Panel ----------
+const VariablesPanelContent = ({ names, values, onChangeValue, onReset }) => {
+  const hasVars = names.length > 0;
+  return (
+    <>
+      {!hasVars ? (
+        <div className={styles.emptyNote} style={{ marginTop: 8 }}>
+          No variables detected. Use <code>{'{{name}}'}</code> in messages to create one.
+        </div>
+      ) : (
+        <div className={styles.varsList}>
+          {names.map((n) => (
+            <div key={n} className={styles.varRow}>
+              <div className={styles.varName}>{n}</div>
+              <input
+                className={styles.varInput}
+                type="text"
+                placeholder={n}
+                value={values[n] ?? ""}
+                onChange={(e) => onChangeValue(n, e.target.value)}
+              />
+            </div>
+          ))}
+          <div className={styles.varsActions}>
+            <button className={styles.toolButton} onClick={onReset}>
+              Reset variables
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 
 
@@ -203,24 +300,69 @@ const VariablesPanelContent = () => (
 
 const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
   const [messages, setMessages] = useState([]);
+
+  //변수 상태 추가 + 감지 useEffect
+  const [varNames, setVarNames] = useState([]);          // ['foo','bar']
+  const [varValues, setVarValues] = useState({});         // { foo:'', bar:'' }
+
   const [isLlmModalOpen, setIsLlmModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null); // 'tool' | 'schema' | null
   const [activePanel, setActivePanel] = useState(null); // 'tools' | 'schema' | null
   const [isSavePopoverOpen, setIsSavePopoverOpen] = useState(false);
   const [isStreamSettingsOpen, setIsStreamSettingsOpen] = useState(false);
   const { projectId: PROJECT_ID, source, setProjectId } = useProjectId();
-  const [attachedTools, setAttachedTools] = useState([]);
-  const [availableTools] = useState([
-    { id: "tool-1", name: "tool", description: "ddd" },
-    { id: "tool-2", name: "search_web", description: "Search the web for information." },
-  ]);
 
+  //tool 기능 관련 선언
+  const [attachedTools, setAttachedTools] = useState([]);
+  const [availableTools, setAvailableTools] = useState([]);
+  const [loadingTools, setLoadingTools] = useState(false);
+  const [toolsError, setToolsError] = useState(null);
+
+  // 모달 컨트롤 (tool 생성/수정 공용)
+  const [editingTool, setEditingTool] = useState(null); // 수정 대상 (null이면 생성)
+
+
+  //schema 기능 관련 선언
   const [attachedUserSchema, setAttachedUserSchema] = useState(null);
-  const [availableSchemas] = useState([{ id: "schema-1", name: "waetae", description: "weddfwe" }]);
+  const [availableSchemas, setAvailableSchemas] = useState([]);
+  const [loadingSchemas, setLoadingSchemas] = useState(false);
+  const [schemasError, setSchemasError] = useState(null);
+
+
 
   const togglePanel = (panelName) => {
     setActivePanel(activePanel === panelName ? null : panelName);
   };
+
+  // projectId 결정 후 Tools 목록 로드
+  useEffect(() => {
+    if (!PROJECT_ID) {
+      setAvailableTools([]);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        setLoadingTools(true);
+        setToolsError(null);
+        const list = await ToolsAPI.list(PROJECT_ID);
+        if (alive) setAvailableTools(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error("load tools failed", e);
+        if (alive) {
+          setToolsError(e?.message || "Failed to load tools");
+          setAvailableTools([]);
+        }
+      } finally {
+        if (alive) setLoadingTools(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [PROJECT_ID]);
+
+
+
+  // Tools 조작 함수
   const handleAddTool = (toolToAdd) => {
     if (!attachedTools.some((t) => t.id === toolToAdd.id)) {
       setAttachedTools((prev) => [...prev, toolToAdd]);
@@ -229,9 +371,98 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
   const handleRemoveTool = (toolId) => {
     setAttachedTools((prev) => prev.filter((t) => t.id !== toolId));
   };
+
+  const refreshTools = async () => {
+    const list = await ToolsAPI.list(PROJECT_ID);
+    setAvailableTools(Array.isArray(list) ? list : []);
+  };
+  const handleCreateTool = () => {
+    setEditingTool(null);           // 생성 모드
+    setModalType("tool");
+  };
+  const handleEditTool = (tool) => {
+    setEditingTool(tool);           // 수정 모드
+    setModalType("tool");
+  };
+  const handleDeleteTool = async (tool) => {
+    if (!window.confirm(`Delete tool "${tool.name}"?`)) return;
+    try {
+      await ToolsAPI.delete(PROJECT_ID, tool.id);
+      await refreshTools();
+      // 만약 첨부돼 있었다면 떼기
+      setAttachedTools((prev) => prev.filter((t) => t.id !== tool.id));
+    } catch (e) {
+      alert(e?.message || "Delete failed");
+    }
+  };
+
+
+
+  //스키마 목록 로딩 useEffect
+  useEffect(() => {
+    if (!PROJECT_ID) {
+      setAvailableSchemas([]);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        setLoadingSchemas(true);
+        setSchemasError(null);
+        const list = await SchemasAPI.list(PROJECT_ID);
+        if (alive) setAvailableSchemas(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error("load schemas failed", e);
+        if (alive) {
+          setSchemasError(e?.message || "Failed to load schemas");
+          setAvailableSchemas([]);
+        }
+      } finally {
+        if (alive) setLoadingSchemas(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [PROJECT_ID]);
+
+
+  //스키마 목록 갱신 헬퍼
+  const refreshSchemas = async () => {
+    const list = await SchemasAPI.list(PROJECT_ID);
+    setAvailableSchemas(Array.isArray(list) ? list : []);
+  };
+
+
+  //스키마 조작 핸들러
   const handleAddSchema = (schemaToAdd) => setAttachedUserSchema(schemaToAdd);
+
   const handleRemoveSchema = (schemaId) => {
-    if (attachedUserSchema && attachedUserSchema.id === schemaId) setAttachedUserSchema(null);
+    if (attachedUserSchema && attachedUserSchema.id === schemaId) {
+      setAttachedUserSchema(null);
+    }
+  };
+
+  const handleCreateSchema = () => {
+    setModalType("schema");
+    setEditingTool(null); // 깨끗하게
+  };
+
+  const [editingSchema, setEditingSchema] = useState(null);
+
+  const handleEditSchema = (schema) => {
+    setEditingSchema(schema);
+    setModalType("schema");
+  };
+
+  const handleDeleteSchema = async (schema) => {
+    if (!window.confirm(`Delete schema "${schema.name}"?`)) return;
+    try {
+      await SchemasAPI.delete(PROJECT_ID, schema.id);
+      await refreshSchemas();
+      // 현재 선택돼 있던 걸 삭제했다면 해제
+      if (attachedUserSchema?.id === schema.id) setAttachedUserSchema(null);
+    } catch (e) {
+      alert(e?.message || "Delete failed");
+    }
   };
 
   // ===== 서버 호출/모델 선택/스트리밍 =====
@@ -371,6 +602,24 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
     return () => document.removeEventListener("mousedown", onDown);
   }, [isModelMenuOpen]);
 
+  //메세지 바뀔 때 마다 변수 자동 추출
+  useEffect(() => {
+    const names = extractVariablesFromMessages(messages);
+    setVarNames(names);
+
+    // 새로 발견된 변수는 빈 값으로 초기화
+    setVarValues((prev) => {
+      const next = { ...prev };
+      names.forEach((n) => {
+        if (!(n in next)) next[n] = "";
+      });
+      // 더 이상 안 쓰는 변수는 남겨도 무해하지만,
+      // 깔끔하게 지우고 싶으면 아래 주석 해제
+      // Object.keys(next).forEach((k) => { if (!names.includes(k)) delete next[k]; });
+      return next;
+    });
+  }, [messages]);
+
   // ✅ 목록에서 (연결,모델) 클릭 시 정확히 그 값으로만 세팅
   function pickConnection(item) {
     setSelectedProvider(item.conn.provider);
@@ -428,6 +677,9 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
         temperature: 0.7,
       },
       streaming,
+      outputSchema: attachedUserSchema
+        ? { id: attachedUserSchema.id, name: attachedUserSchema.name, schema: attachedUserSchema.schema || {} }
+        : null,
     };
   }
 
@@ -481,7 +733,19 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
       alert("Select provider/model and add at least one message.");
       return;
     }
-    const body = toServerBody(messages);
+
+
+    // 1) 미입력 변수 검사
+    const missing = varNames.filter((v) => !(varValues[v] && String(varValues[v]).trim().length));
+    if (missing.length) {
+      alert(`Values required for: ${missing.join(", ")}`);
+      return;
+    }
+    // 2) 변수 치환
+    const finalMessages = fillVariables(messages, varValues);
+    const body = toServerBody(finalMessages);
+
+
     try {
       setIsSubmitting(true);
       setOutput(null);
@@ -636,7 +900,7 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
           <BookText size={14} /> Schema <span className={styles.badge}>{attachedUserSchema ? 1 : 0}</span>
         </button>
         <button className={styles.controlBtn} onClick={() => togglePanel("variables")}>
-          <Variable size={14} /> Variables
+          <Variable size={14} /> Variables <span className={styles.badge}>{varNames.length}</span>
         </button>
       </div>
 
@@ -647,8 +911,13 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
             availableTools={availableTools}
             onAddTool={handleAddTool}
             onRemoveTool={handleRemoveTool}
-            onCreateTool={() => setModalType("tool")}
+
+            onCreateTool={handleCreateTool}
+            onEditTool={handleEditTool}
+            onDeleteTool={handleDeleteTool}
+            loading={loadingTools}
           />
+          {toolsError && <div className={styles.errorText} style={{ marginTop: 8 }}>{toolsError}</div>}
         </PlaygroundPanel>
       )}
 
@@ -659,8 +928,13 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
             availableSchemas={availableSchemas}
             onAddSchema={handleAddSchema}
             onRemoveSchema={handleRemoveSchema}
-            onCreateSchema={() => setModalType("schema")}
+
+            onCreateSchema={handleCreateSchema}
+            onEditSchema={handleEditSchema}
+            onDeleteSchema={handleDeleteSchema}
+            loading={loadingSchemas}
           />
+          {schemasError && <div className={styles.errorText} style={{ marginTop: 8 }}>{schemasError}</div>}
         </PlaygroundPanel>
       )}
 
@@ -671,14 +945,20 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
           description={
             <>
               Configure variables and message placeholders for your prompts.
-              <br />
-              No variables or message placeholders defined.
+
+              <br />Use {"{{variable}}"} in any message to register it here.
             </>
           }
           compact
           floating
         >
-          <VariablesPanelContent />
+
+          <VariablesPanelContent
+            names={varNames}
+            values={varValues}
+            onChangeValue={(name, val) => setVarValues((p) => ({ ...p, [name]: val }))}
+            onReset={() => setVarValues(Object.fromEntries(varNames.map((n) => [n, ""])))}
+          />
         </PlaygroundPanel>
       )}
 
@@ -735,7 +1015,76 @@ const PlaygroundComponent = ({ onCopy, onRemove, showRemoveButton }) => {
 
       {/* Modals */}
       <NewLlmConnectionModal isOpen={isLlmModalOpen} onClose={() => setIsLlmModalOpen(false)} />
-      {modalType && <NewItemModal isOpen={!!modalType} type={modalType} onClose={() => setModalType(null)} />}
+
+      {/* 모달 띄우기 & 저장 처리 */}
+      {modalType === "tool" && (
+        <NewItemModal
+          isOpen
+          type="tool"
+          initialData={editingTool ? {
+            name: editingTool.name,
+            description: editingTool.description,
+            parameters: editingTool.parameters || {},
+          } : undefined}
+          onSubmit={async (form) => {
+            try {
+              if (editingTool) {
+                await ToolsAPI.update(PROJECT_ID, {
+                  id: editingTool.id,
+                  name: form.name,
+                  description: form.description,
+                  parameters: form.parameters,
+                });
+              } else {
+                await ToolsAPI.create(PROJECT_ID, {
+                  name: form.name,
+                  description: form.description,
+                  parameters: form.parameters,
+                });
+              }
+              await refreshTools();
+            } catch (e) {
+              alert(e?.message || "Save failed");
+            }
+          }}
+          onClose={() => { setModalType(null); setEditingTool(null); }}
+        />
+      )}
+
+      {modalType === "schema" && (
+        <NewItemModal
+          isOpen
+          type="schema"
+          initialData={editingSchema ? {
+            name: editingSchema.name,
+            description: editingSchema.description,
+            schema: editingSchema.schema || {},   // ← 키 이름 주의
+          } : undefined}
+          onSubmit={async (form) => {
+            try {
+              if (editingSchema) {
+                await SchemasAPI.update(PROJECT_ID, {
+                  id: editingSchema.id,
+                  name: form.name,
+                  description: form.description,
+                  schema: form.schema, // ← NewItemModal에서 type='schema'면 schema 키로 옴
+                });
+              } else {
+                await SchemasAPI.create(PROJECT_ID, {
+                  name: form.name,
+                  description: form.description,
+                  schema: form.schema,
+                });
+              }
+              await refreshSchemas();
+            } catch (e) {
+              alert(e?.message || "Save failed");
+            }
+          }}
+          onClose={() => { setModalType(null); setEditingSchema(null); }}
+        />
+      )}
+
     </div>
   );
 };

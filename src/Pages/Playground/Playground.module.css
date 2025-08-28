@@ -710,7 +710,17 @@
   user-select: text;
 }
 
-
+.varInput {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: inherit;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
 
 .varInputEditing {
   border-color: #ff66cc;

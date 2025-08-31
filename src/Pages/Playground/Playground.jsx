@@ -1129,7 +1129,7 @@ const PlaygroundComponent = ({ PROJECT_ID, onCopy, onRemove, showRemoveButton, p
             ) : null}
           </div>
         )}
-        
+
         {isSavePopoverOpen && <SavePromptPopover onSaveAsNew={() => console.log("onSaveAsNew")} />}
       </div>
 

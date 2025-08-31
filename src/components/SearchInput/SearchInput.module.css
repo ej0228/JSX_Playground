@@ -7,9 +7,9 @@
   border: 1px solid #334155;
   border-radius: 6px;
   padding: 0 10px;
-  flex-grow: 1;
-  max-width: 400px;
-  height: 34px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px; /* 살짝 높여 라운드/렌더링 이슈 완화 */
 }
 
 .searchBox:focus-within {
@@ -27,10 +27,11 @@
   border: none;
   outline: none;
   color: white;
-  padding: 2px;
-  margin-top: 13px;
+  padding: 0;
+  margin: 0; 
   font-size: 14px;
   width: 100%;
+  line-height: 1.2;
 }
 
 /* ▲▲▲ 이 부분 수정 ▲▲▲ */

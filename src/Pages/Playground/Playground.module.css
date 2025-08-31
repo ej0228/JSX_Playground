@@ -11,7 +11,6 @@
    - 8) 자잘한 상태 텍스트/유틸
    =================================================================== */
 
-
 /* =========================
    0) 공통 색/레이아웃
    ========================= */
@@ -21,12 +20,10 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - 48px);
-  /* 상단 ProjectHeader 높이만큼 보정 */
   box-sizing: border-box;
 }
 
 :root {
-  /* 다크 카드 배경/보더 공통 변수 */
   --card: #0b1020;
   --cardInner: #0f172a;
   --border: #1e293b;
@@ -115,7 +112,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   position: relative;
-  /* 내부 absolute 요소 기준 */
+  /* 내부 absolute 기준 */
 }
 
 .cardHeader {
@@ -126,6 +123,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  /* ⬅ dropdown 기준 */
+}
+
+/* 좌측 헤더 래퍼: model pill & 메뉴 기준 */
+.cardHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  /* ⬅ dropdown 붙일 기준 */
 }
 
 .cardActions {
@@ -187,23 +195,21 @@
   gap: 8px;
 }
 
-
-/* 상단 헤더 바로 아래에 붙는 얇은 툴바 */
+/* 상단 헤더 바로 아래 붙는 얇은 툴바 */
 .pageToolbar {
   display: flex;
   justify-content: flex-end;
-  /* ▶ 우측 정렬 */
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  /* 헤더 하단과 간격 맞춤 */
-  /* 선택: 배경/보더를 헤더와 톤 맞추고 싶으면 */
-  /* background: var(--c-surface-1); */
-  /* border: 1px solid var(--c-border); */
-  /* border-radius: 8px; */
-  /* margin: 8px 0 12px;  */
 }
 
+/* 리스트 행 우측 아이콘 그룹 (Edit/Delete) */
+.rowActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
 
 .controlBtn {
   background: #0f172a;
@@ -309,6 +315,109 @@
   transform: translateX(18px);
 }
 
+/* 모델 요약/선택 Pill */
+.modelSummaryRow {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+.modelPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--c-border, #2a2f3a);
+  background: var(--c-surface-2, #0f1218);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--c-text, #fff);
+  cursor: pointer;
+}
+
+.modelPill:hover {
+  filter: brightness(1.06);
+}
+
+.modelPill:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.modelProvider {
+  opacity: 0.9;
+}
+
+.modelSep {
+  opacity: 0.5;
+  margin: 0 2px;
+}
+
+.modelName {
+  font-weight: 600;
+}
+
+/* 드롭다운 메뉴 (버튼이 들어있는 왼쪽 헤더 래퍼 기준) */
+.modelMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 280px;
+  padding: 8px;
+  border: 1px solid var(--c-border, #2a2f3a);
+  background: var(--c-surface-2, #0f1218);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.menuSectionLabel {
+  font-size: 12px;
+  opacity: 0.6;
+  padding: 4px 6px 6px;
+}
+
+.menuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--c-text, #fff);
+  text-align: left;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItem.active {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.menuMain {
+  font-weight: 600;
+}
+
+.menuSep {
+  opacity: 0.5;
+}
+
+.menuModel {
+  opacity: 0.9;
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--c-border, #2a2f3a);
+  margin: 6px 0;
+}
+
 /* =========================
    4) Tools/Schema 패널 리스트
    ========================= */
@@ -324,13 +433,8 @@
 }
 
 .toolSearch {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: #020817;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 8px;
+    display: block;   /* SearchInput이 자체적으로 flex/width 가짐 */
+   margin: 8px 0;    /* 위아래 간격만 */
 }
 
 .toolSearch input {
@@ -456,19 +560,17 @@
 
 /* =========================
    6) 하단 푸터(Submit + 스트리밍 설정 버튼)
-   - 기존 .footer는 더 이상 사용하지 않음(호환용 남김)
    ========================= */
 .footer {
-  /* deprecated: 예전 하단바 */
+  /* deprecated: 옛 하단바 */
   position: sticky;
   bottom: 0;
   background: var(--card);
   padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, .08);
   z-index: 5;
 }
 
-/* 새 하단바: 좌측 Submit(풀폭) + 우측 컨트롤(⚙) */
 .footerBar {
   position: sticky;
   bottom: 0;
@@ -509,10 +611,9 @@
    ========================= */
 .streamPopover {
   position: fixed;
-  /* 화면 우하단 고정 */
   right: 16px;
   bottom: 72px;
-  /* Submit 바 위로 띄우기 */
+  /* Submit 바 위 */
   width: 280px;
   background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -534,7 +635,6 @@
   margin-bottom: 10px;
 }
 
-/* 팝오버 내부 행(라벨-토글 좌우 배치) */
 .switchRow {
   display: flex;
   align-items: center;
@@ -553,7 +653,6 @@
   color: #ef4444;
 }
 
-/* (모델 직접 입력용) 셀렉트 스타일과 톤을 맞춘 텍스트 입력 */
 .textInput {
   height: 36px;
   border-radius: 8px;
@@ -564,110 +663,11 @@
   outline: none;
 }
 
-/* 필수값 누락 시 붉은 보더로 하이라이트 */
 .inputError {
   border-color: #ef4444 !important;
 }
 
-/* 모델 요약 한 줄 */
-.modelSummaryRow {
-  display: flex;
-  align-items: center;
-  min-height: 36px;
-}
-
-.modelPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--c-border, #2a2f3a);
-  background: var(--c-surface-2, #0f1218);
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--c-text, #fff);
-  cursor: pointer;
-}
-
-.modelPill:hover {
-  filter: brightness(1.06);
-}
-
-.modelProvider {
-  opacity: 0.9;
-}
-
-.modelSep {
-  opacity: 0.5;
-  margin: 0 2px;
-}
-
-.modelName {
-  font-weight: 600;
-}
-
-/* 드롭다운 메뉴 */
-.modelMenu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  /* pill 바로 아래 왼쪽 정렬 */
-  min-width: 280px;
-  padding: 8px;
-  border: 1px solid var(--c-border, #2a2f3a);
-  background: var(--c-surface-2, #0f1218);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  z-index: 10;
-}
-
-.menuSectionLabel {
-  font-size: 12px;
-  opacity: 0.6;
-  padding: 4px 6px 6px;
-}
-
-.menuItem {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  color: var(--c-text, #fff);
-  text-align: left;
-}
-
-.menuItem:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.menuItem.active {
-  background: rgba(255, 255, 255, 0.10);
-}
-
-.menuMain {
-  font-weight: 600;
-}
-
-.menuSep {
-  opacity: 0.5;
-}
-
-.menuModel {
-  opacity: 0.9;
-}
-
-.menuDivider {
-  height: 1px;
-  background: var(--c-border, #2a2f3a);
-  margin: 6px 0;
-}
-
+/* Variables */
 .varsList {
   display: grid;
   gap: 8px;
@@ -691,7 +691,6 @@
   color: #5afc9d;
 }
 
-/* color: #9aa4b2; */
 .varInput {
   width: 100%;
   padding: 8px 10px;

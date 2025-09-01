@@ -71,7 +71,13 @@ export default function App() {
     <Routes>
       {/* 로그인 */}
       <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-      <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />}>
+
+      {/* // <<< START: setting 깨짐 값을 위해 수정된 부분 >>></START: 수정된> */}
+      {/* <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />} > */}
+
+      {/* 셋팅 부분 깨짐 현상 수정을 위한 추가 _ 20250901 */}
+      <Route path="/" element={session ? <Layout session={session} /> : <Navigate to="/login" />}>
+        {/* // <<< END: setting 깨짐 값을 위해 수정된 부분 >>>   */}
 
         {/* 홈 -> /trace 경로로 리디렉션 */}
         <Route index element={<Navigate to="/trace" replace />} />
@@ -109,6 +115,7 @@ export default function App() {
 
         <Route path="settings" element={<SettingsPage />}>
           <Route index element={<General />} />
+          <Route path="api-keys" element={<ApiKeys />} /> {/* setting설정값을 위한 추가 20250901 */}
           <Route path="llm-connections" element={<LLMConnections />} />
           <Route path="models" element={<Models />} />
           <Route path="scores" element={<Scores />} />
@@ -116,6 +123,6 @@ export default function App() {
         </Route>
 
       </Route>
-    </Routes>
+    </Routes >
   );
 }

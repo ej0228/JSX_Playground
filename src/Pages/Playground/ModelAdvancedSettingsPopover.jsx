@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./ModelAdvancedSettingsPopover.module.css";
-import { fetchProviderMaskedKey } from "../../lib/getMaskedKey";
+import { fetchProviderMaskedKey } from "./lib/getMaskedKey";
 
 export default function ModelAdvancedSettingsPopover({
   open,
@@ -21,18 +21,18 @@ export default function ModelAdvancedSettingsPopover({
   const navigate = useNavigate();
 
   // 팝오버 열릴 때 프로젝트/프로바이더의 API Key 불러오기
-useEffect(() => {
-  if (!open || !projectId || !provider) return;
-  (async () => {
-    try {
-      const masked = await fetchProviderMaskedKey({ projectId, provider });
-      setApiKey(masked || "");
-    } catch (e) {
-      console.error("masked key fetch failed:", e);
-      setApiKey("");
-    }
-  })();
-}, [open, projectId, provider]);
+  useEffect(() => {
+    if (!open || !projectId || !provider) return;
+    (async () => {
+      try {
+        const masked = await fetchProviderMaskedKey({ projectId, provider });
+        setApiKey(masked || "");
+      } catch (e) {
+        console.error("masked key fetch failed:", e);
+        setApiKey("");
+      }
+    })();
+  }, [open, projectId, provider]);
 
   // 위치 계산
   useEffect(() => {
@@ -134,9 +134,8 @@ useEffect(() => {
               inputMode="decimal"
             />
             <div
-              className={`${styles.advToggleSwitch} ${
-                values.useTemperature ? styles.advToggleOn : ""
-              }`}
+              className={`${styles.advToggleSwitch} ${values.useTemperature ? styles.advToggleOn : ""
+                }`}
               onClick={() => update({ useTemperature: !values.useTemperature })}
               role="switch"
               aria-checked={!!values.useTemperature}
@@ -175,9 +174,8 @@ useEffect(() => {
               inputMode="numeric"
             />
             <div
-              className={`${styles.advToggleSwitch} ${
-                values.useMaxTokens ? styles.advToggleOn : ""
-              }`}
+              className={`${styles.advToggleSwitch} ${values.useMaxTokens ? styles.advToggleOn : ""
+                }`}
               onClick={() => update({ useMaxTokens: !values.useMaxTokens })}
               role="switch"
               aria-checked={!!values.useMaxTokens}
@@ -250,9 +248,8 @@ useEffect(() => {
           </div>
           <div className={styles.advParameterControls}>
             <div
-              className={`${styles.advToggleSwitch} ${
-                values.additionalOptions ? styles.advToggleOn : ""
-              }`}
+              className={`${styles.advToggleSwitch} ${values.additionalOptions ? styles.advToggleOn : ""
+                }`}
               onClick={() => update({ additionalOptions: !values.additionalOptions })}
               role="switch"
               aria-checked={!!values.additionalOptions}

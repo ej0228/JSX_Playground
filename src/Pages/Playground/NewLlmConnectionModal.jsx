@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import styles from "./NewLlmConnectionModal.module.css";
 import PropTypes from "prop-types";
-import { upsertLlmConnection } from "lib/llmConnections";
+import { upsertLlmConnection } from "Pages/Playground/lib/llmConnections";
 
 function NewLlmConnectionModal({ isOpen, onClose, projectId: projectIdProp }) {
   if (!isOpen) return null;
